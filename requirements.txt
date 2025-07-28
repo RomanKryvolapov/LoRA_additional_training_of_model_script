@@ -1,0 +1,11 @@
+transformers==4.54.0
+peft==0.16.0
+datasets==2.19.1
+accelerate==1.9.0
+trl==0.19.1
+scipy==1.13.1
+
+sentencepiece==0.1.99
+unsloth==2025.7.9
+
+torch==2.5.0+cu124
