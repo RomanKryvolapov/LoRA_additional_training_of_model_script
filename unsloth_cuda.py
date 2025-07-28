@@ -1,3 +1,8 @@
+import torch
+print(torch.__version__)
+print(torch.version.cuda)
+print(torch.cuda.is_available())
+
 import os
 os.environ["UNSLOTH_PATCH_RL_TRAINERS"] = "false"
 os.environ["UNSLOTH_COMPILE_DISABLE"] = "1"
@@ -8,9 +13,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from datasets import Dataset                             # TODO
-from unsloth import FastLanguageModel                    # TODO
-from trl import SFTTrainer, SFTConfig                    # TODO
+from datasets import Dataset
+from unsloth import FastLanguageModel
+from trl import SFTTrainer, SFTConfig
 
 # ─────────────────────────────────────────────
 # Constants
@@ -34,18 +39,18 @@ LR             = 2e-4
 # Main function
 # ─────────────────────────────────────────────
 def main():
-    print("🧹[1/7] Cleaning previous artefacts…")
+    print("[1/7] Cleaning previous artefacts…")
     for _dir in (LORA_OUTPUT, MERGED_DIR, GGUF_DIR):
         if _dir.exists():
             shutil.rmtree(_dir)
             print(f"  ‑ removed «{_dir}»")
     print("  ✔️Finished cleaning")
 
-    print("📄[2/7] Reading training examples…")
+    print("[2/7] Reading training examples…")
     with DATA_PATH.open(encoding="utf-8") as fp:
         records = json.load(fp)
 
-    def build_chat(example):  # TODO
+    def build_chat(example):
         prompt = example["prompt"].strip()
         response = example["response"].strip()
         return {
@@ -58,8 +63,8 @@ def main():
     ds = Dataset.from_list([build_chat(r) for r in records])
     print(f"  ✔️Loaded {len(ds):,} samples")
 
-    print(f"🦥[3/7] Loading base model from «{MODEL_DIR}» …")
-    model, tokenizer = FastLanguageModel.from_pretrained(  # TODO
+    print(f"[3/7] Loading base model from «{MODEL_DIR}» …")
+    model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=str(MODEL_DIR),
         max_seq_length=MAX_SEQ_LEN,
         load_in_4bit=True,
@@ -69,7 +74,7 @@ def main():
     model = FastLanguageModel.get_peft_model(model)  # attach LoRA
     print("  ✔️Model ready for fine‑tuning")
 
-    print("🎯[4/7] Starting supervised fine‑tuning …")
+    print("[4/7] Starting supervised fine‑tuning …")
     sft_cfg = SFTConfig(
         per_device_train_batch_size=BATCH_SIZE,
         num_train_epochs=NUM_EPOCHS,
@@ -80,26 +85,24 @@ def main():
 
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
         train_dataset=ds,
         args=sft_cfg,
-        dataset_text_field="text"
     )
 
     trainer.train()
     print("  ✔️Training complete")
 
-    print(f"💾[5/7] Saving LoRA weights to «{LORA_OUTPUT}» …")
+    print(f"[5/7] Saving LoRA weights to «{LORA_OUTPUT}» …")
     LORA_OUTPUT.mkdir(parents=True, exist_ok=True)
     model.save_pretrained_merged(str(LORA_OUTPUT), tokenizer, save_method="lora")
     print("  ✔️Adapters saved")
 
-    print("🔗[6/7] Merging LoRA + base ⟶ fp16 …")
+    print("[6/7] Merging LoRA + base ⟶ fp16 …")
     MERGED_DIR.mkdir(parents=True, exist_ok=True)
     model.save_pretrained_merged(str(MERGED_DIR), tokenizer, save_method="merged_16bit")
     print(f"  ✔️Merged model written to «{MERGED_DIR}»")
 
-    print("🔄[7/7] Converting to GGUF (q4_K_M) …")
+    print("[7/7] Converting to GGUF (q4_K_M) …")
     GGUF_DIR.mkdir(parents=True, exist_ok=True)
     subprocess.run(
         [
@@ -112,7 +115,7 @@ def main():
         check=True,
     )
     print(f"  ✔️GGUF ready at «{GGUF_PATH}»")
-    print("🏁Pipeline finished successfully!")
+    print("Pipeline finished successfully!")
 
 # ─────────────────────────────────────────────
 # Required for Windows multiprocessing
